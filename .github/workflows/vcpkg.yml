@@ -1,0 +1,68 @@
+name: Deploy OpenSSL
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "*" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: ['OpenBSD-7.5', OpenBSD-7.4]
+        include:
+          - runner: 'OpenBSD-7.5'
+            vcpkg_target_triplet: 'x64-openbsd'
+          - runner: 'OpenBSD-7.4'
+            vcpkg_target_triplet: 'x64-openbsd'
+  
+    permissions:
+      contents: read
+      packages: write
+  
+    runs-on: ${{ matrix.runner }}
+
+    env:
+      VCPKG_TARGET_TRIPLET: ${{ matrix.vcpkg_target_triplet }}
+      VCPKG_BINARY_SOURCES: 'clear;'
+    
+    steps:
+    - name: Install dependencies on OpenBSD
+      if: ${{ matrix.runner == 'OpenBSD-7.5' }}
+      run: |
+        pkg_add -Iz bash cmake coreutils curl git ninja zip unzip-6.10-iconv
+        pkg_add -Iz autoconf-2.71 autoconf-archive gmake pkgconf python3
+    
+    - name: Checkout VCPKG
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+    
+    - name: Bootstrap VCPKG
+      run: |
+        cmake -E chdir vcpkg sh bootstrap-vcpkg.sh
+        
+    - name: Install glib consumer
+      run: |
+        export MAKE=gmake
+        ./vcpkg/vcpkg install --debug pango
+    
+    - name: Archive VCPKG Log Files
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: buildlogs
+        path: |
+          vcpkg/buildtrees/*/*.txt
+          vcpkg/buildtrees/*/*.log
+    
+    - name: Archive VCPKG Package Content
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: info
+        path: |
+          vcpkg/installed/vcpkg/info/*
