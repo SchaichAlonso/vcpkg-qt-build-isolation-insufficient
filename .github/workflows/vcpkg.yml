@@ -1,4 +1,4 @@
-name: Deploy OpenSSL
+name: Deploy qtbase
 
 on:
   push:
@@ -12,12 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: ['OpenBSD-7.5', OpenBSD-7.4]
+        runner: ['ubuntu-22.04']
         include:
-          - runner: 'OpenBSD-7.5'
-            vcpkg_target_triplet: 'x64-openbsd'
-          - runner: 'OpenBSD-7.4'
-            vcpkg_target_triplet: 'x64-openbsd'
+          - runner: 'ubuntu-22.04'
+            vcpkg_target_triplet: 'x64-linux'
   
     permissions:
       contents: read
@@ -30,12 +28,34 @@ jobs:
       VCPKG_BINARY_SOURCES: 'clear;'
     
     steps:
-    - name: Install dependencies on OpenBSD
-      if: ${{ matrix.runner == 'OpenBSD-7.5' }}
-      run: |
-        pkg_add -Iz bash cmake coreutils curl git ninja zip unzip-6.10-iconv
-        pkg_add -Iz autoconf-2.71 autoconf-archive gmake pkgconf python3
+    - name: Update ubuntu repository
+      if: ${{ matrix.runner == 'ubuntu-22.04' }}
+      shell: bash
+      run: sudo apt-get update
+      
+    - name: Install ubuntu icu dependencies
+      if: ${{ matrix.runner == 'ubuntu-22.04' }}
+      shell: bash
+      run: sudo apt-get install autoconf-archive
     
+    - name: Install ubuntu qtbase dependencies (documented)
+      if: ${{ matrix.runner == 'ubuntu-22.04' }}
+      shell: bash
+      run: sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
+
+    - name: Install ubuntu qtbase dependencies (undocumented)
+      if: ${{ matrix.runner == 'ubuntu-22.04' }}
+      shell: bash
+      run: sudo apt-get install libgl1-mesa-dev mesa-common-dev
+    
+    - name: Install ubuntu Ninja
+      if: ${{ matrix.runner == 'ubuntu-22.04' }}
+      shell: bash
+      run: sudo sudo apt-get install ninja-build
+    
+    - name: uname
+      run: uname -a
+
     - name: Checkout VCPKG
       uses: actions/checkout@v4
       with:
@@ -45,16 +65,15 @@ jobs:
       run: |
         cmake -E chdir vcpkg sh bootstrap-vcpkg.sh
         
-    - name: Install glib consumer
+    - name: Install QtBase
       run: |
-        export MAKE=gmake
-        ./vcpkg/vcpkg install --debug pango
+        ./vcpkg/vcpkg install --debug 'qtbase[jpeg]'
     
     - name: Archive VCPKG Log Files
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: buildlogs
+        name: ${{ matrix.runner }} buildlogs
         path: |
           vcpkg/buildtrees/*/*.txt
           vcpkg/buildtrees/*/*.log
@@ -63,6 +82,6 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: info
+        name: ${{ matrix.runner }} info
         path: |
           vcpkg/installed/vcpkg/info/*
