@@ -67,7 +67,7 @@ jobs:
         
     - name: Install QtBase
       run: |
-        ./vcpkg/vcpkg install --debug 'qtbase[jpeg]'
+        ./vcpkg/vcpkg install --debug 'qtbase[core,concurrent,gui,jpeg,network,openssl,png,sql,sql-sqlite,testlib]'
     
     - name: Archive VCPKG Log Files
       if: always()
